@@ -24,6 +24,10 @@ type LocalStorage struct {
 	bufValues []interface{}
 }
 
+// New creates a new instance LocalStorage.
+//
+// The bufferSize argument sets the initial
+// size of the buffers.
 func New(ctx context.Context, bufferSize int) LocalStorage {
 	s := LocalStorage{
 		db:        make(map[string]wrapper),
@@ -53,6 +57,7 @@ func (s LocalStorage) scheduler(ctx context.Context) {
 	}
 }
 
+// the Get returns value by key.
 func (s LocalStorage) Get(key string) (interface{}, bool) {
 	s.mutex.RLock()
 	wrap, ok := s.get(key)
@@ -60,6 +65,7 @@ func (s LocalStorage) Get(key string) (interface{}, bool) {
 	return wrap.value, ok
 }
 
+// the Put adds key and value in storage.
 func (s LocalStorage) Put(key string, value interface{}, ttl time.Duration) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -70,6 +76,7 @@ func (s LocalStorage) Put(key string, value interface{}, ttl time.Duration) erro
 
 }
 
+// the Del deletes value by key.
 func (s LocalStorage) Del(key string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -80,6 +87,7 @@ func (s LocalStorage) Del(key string) error {
 	return nil
 }
 
+// the Keys returns keys array.
 func (s LocalStorage) Keys() []string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -90,6 +98,7 @@ func (s LocalStorage) Keys() []string {
 	return s.bufKeys
 }
 
+// the Values returns values array.
 func (s LocalStorage) Values() []interface{} {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
