@@ -24,7 +24,7 @@ type LocalStorage struct {
 	bufValues []interface{}
 }
 
-func NewLocalStorage(ctx context.Context, bufferSize int) LocalStorage {
+func New(ctx context.Context, bufferSize int) LocalStorage {
 	s := LocalStorage{
 		db:        make(map[string]wrapper),
 		mutex:     &sync.RWMutex{},
