@@ -1,7 +1,6 @@
 package localstorage_test
 
 import (
-	"context"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -10,10 +9,7 @@ import (
 )
 
 func TestLocalStorage_Get(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 10)
+	db := localstorage.New(10)
 	_ = db.Put("key", "value")
 
 	testcases := []struct {
@@ -49,10 +45,7 @@ func TestLocalStorage_Get(t *testing.T) {
 }
 
 func TestLocalStorage_Put(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 10)
+	db := localstorage.New(10)
 
 	testcases := []struct {
 		name     string
@@ -84,10 +77,7 @@ func TestLocalStorage_Put(t *testing.T) {
 }
 
 func TestLocalStorage_Del(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 10)
+	db := localstorage.New(10)
 	_ = db.Put("key", "value")
 
 	testcases := []struct {
@@ -117,10 +107,7 @@ func TestLocalStorage_Del(t *testing.T) {
 }
 
 func TestLocalStorage_Keys(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 10)
+	db := localstorage.New(10)
 
 	keys := db.Keys()
 	if len(keys) != 0 {
@@ -139,10 +126,7 @@ func TestLocalStorage_Keys(t *testing.T) {
 }
 
 func TestLocalStorage_Values(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 10)
+	db := localstorage.New(10)
 
 	values := db.Values()
 	if len(values) != 0 {
@@ -161,10 +145,7 @@ func TestLocalStorage_Values(t *testing.T) {
 }
 
 func BenchmarkLocalStorage_AsyncAll(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 1024)
+	db := localstorage.New(1024)
 	keys := GenerateKeys(1024)
 	count := len(keys)
 
@@ -212,10 +193,7 @@ func BenchmarkLocalStorage_AsyncAll(b *testing.B) {
 }
 
 func BenchmarkLocalStorage_Get(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 128)
+	db := localstorage.New(128)
 	keys := GenerateKeys(128)
 
 	for _, v := range keys {
@@ -228,10 +206,7 @@ func BenchmarkLocalStorage_Get(b *testing.B) {
 }
 
 func BenchmarkLocalStorage_Put(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 128)
+	db := localstorage.New(128)
 	keys := GenerateKeys(128)
 
 	for i := 0; i < b.N; i++ {
@@ -240,10 +215,7 @@ func BenchmarkLocalStorage_Put(b *testing.B) {
 }
 
 func BenchmarkLocalStorage_Del(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 128)
+	db := localstorage.New(128)
 	keys := GenerateKeys(128)
 
 	for _, v := range keys {
@@ -256,10 +228,7 @@ func BenchmarkLocalStorage_Del(b *testing.B) {
 }
 
 func BenchmarkLocalStorage_Keys(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 128)
+	db := localstorage.New(128)
 	keys := GenerateKeys(128)
 
 	go func() {
@@ -274,10 +243,7 @@ func BenchmarkLocalStorage_Keys(b *testing.B) {
 }
 
 func BenchmarkLocalStorage_Values(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 128)
+	db := localstorage.New(128)
 	keys := GenerateKeys(128)
 
 	go func() {

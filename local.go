@@ -1,7 +1,6 @@
 package localstorage
 
 import (
-	"context"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -24,7 +23,7 @@ type LocalStorage struct {
 //
 // The bufferSize argument sets the initial
 // size of the buffers.
-func New(ctx context.Context, bufferSize int) LocalStorage {
+func New(bufferSize int) LocalStorage {
 	return LocalStorage{
 		db:        make(map[string]interface{}),
 		mutex:     sync.RWMutex{},
