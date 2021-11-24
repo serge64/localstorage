@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"time"
+	"sync/atomic"
 )
 
 var (
@@ -12,14 +12,10 @@ var (
 	ErrNotUniqueKey = errors.New("not unique key")
 )
 
-type wrapper struct {
-	value interface{}
-	ttl   time.Time
-}
-
 type LocalStorage struct {
-	db        map[string]wrapper
-	mutex     *sync.RWMutex
+	db        map[string]interface{}
+	mutex     sync.RWMutex
+	cache     atomic.Value
 	bufKeys   []string
 	bufValues []interface{}
 }
@@ -29,55 +25,33 @@ type LocalStorage struct {
 // The bufferSize argument sets the initial
 // size of the buffers.
 func New(ctx context.Context, bufferSize int) LocalStorage {
-	s := LocalStorage{
-		db:        make(map[string]wrapper),
-		mutex:     &sync.RWMutex{},
+	return LocalStorage{
+		db:        make(map[string]interface{}),
+		mutex:     sync.RWMutex{},
+		cache:     atomic.Value{},
 		bufKeys:   make([]string, 0, bufferSize),
 		bufValues: make([]interface{}, 0, bufferSize),
-	}
-	go s.scheduler(ctx)
-	return s
-}
-
-func (s LocalStorage) scheduler(ctx context.Context) {
-	tick := time.NewTicker(time.Duration(50) * time.Microsecond)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-tick.C:
-			s.mutex.Lock()
-			for k, v := range s.db {
-				if time.Now().After(v.ttl) {
-					s.del(k)
-				}
-			}
-			s.mutex.Unlock()
-		}
 	}
 }
 
 // the Get returns value by key.
-func (s LocalStorage) Get(key string) (interface{}, bool) {
+func (s *LocalStorage) Get(key string) (interface{}, bool) {
 	s.mutex.RLock()
 	wrap, ok := s.get(key)
 	s.mutex.RUnlock()
-	return wrap.value, ok
+	return wrap, ok
 }
 
 // the Put adds key and value in storage.
-func (s LocalStorage) Put(key string, value interface{}, ttl time.Duration) error {
+func (s *LocalStorage) Put(key string, value interface{}) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if ttl > 0 {
-		return s.put(key, wrapper{value: value, ttl: time.Now().Add(ttl)})
-	}
-	return s.put(key, wrapper{value: value, ttl: time.Time{}})
+	return s.put(key, value)
 
 }
 
 // the Del deletes value by key.
-func (s LocalStorage) Del(key string) error {
+func (s *LocalStorage) Del(key string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if _, ok := s.get(key); !ok {
@@ -88,40 +62,66 @@ func (s LocalStorage) Del(key string) error {
 }
 
 // the Keys returns keys array.
-func (s LocalStorage) Keys() []string {
+func (s *LocalStorage) Keys() []string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+	if s.cached() {
+		return s.bufKeys
+	}
 	s.bufKeys = s.bufKeys[:0]
 	for k := range s.db {
 		s.bufKeys = append(s.bufKeys, k)
 	}
+	s.newCache()
 	return s.bufKeys
 }
 
 // the Values returns values array.
-func (s LocalStorage) Values() []interface{} {
+func (s *LocalStorage) Values() []interface{} {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+	if s.cached() {
+		return s.bufValues
+	}
 	s.bufValues = s.bufValues[:0]
 	for _, v := range s.db {
-		s.bufValues = append(s.bufValues, v.value)
+		s.bufValues = append(s.bufValues, v)
 	}
+	s.newCache()
 	return s.bufValues
 }
 
-func (s LocalStorage) get(key string) (wrapper, bool) {
-	wrap, ok := s.db[key]
-	return wrap, ok
+func (s *LocalStorage) get(key string) (interface{}, bool) {
+	value, ok := s.db[key]
+	return value, ok
 }
 
-func (s LocalStorage) put(key string, value wrapper) error {
+func (s *LocalStorage) put(key string, value interface{}) error {
 	if _, ok := s.get(key); ok {
 		return ErrNotUniqueKey
 	}
 	s.db[key] = value
+	s.resetCache()
 	return nil
 }
 
-func (s LocalStorage) del(key string) {
+func (s *LocalStorage) del(key string) {
 	delete(s.db, key)
+	s.resetCache()
+}
+
+func (s *LocalStorage) newCache() {
+	s.cache.Store(true)
+}
+
+func (s *LocalStorage) resetCache() {
+	s.cache.Store(false)
+}
+
+func (s *LocalStorage) cached() bool {
+	cache := s.cache.Load()
+	if cache == nil {
+		return false
+	}
+	return cache.(bool)
 }

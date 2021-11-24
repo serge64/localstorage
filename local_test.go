@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/serge64/localstorage"
 )
@@ -15,7 +14,7 @@ func TestLocalStorage_Get(t *testing.T) {
 	defer cancel()
 
 	db := localstorage.New(ctx, 10)
-	_ = db.Put("key", "value", 0)
+	_ = db.Put("key", "value")
 
 	testcases := []struct {
 		name     string
@@ -76,62 +75,9 @@ func TestLocalStorage_Put(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := db.Put(tc.key, tc.value, 0)
+			err := db.Put(tc.key, tc.value)
 			if err != tc.expected {
 				t.Errorf("Values not equals:\n- expected: %s\n- actual: %s", tc.expected, err)
-			}
-		})
-	}
-}
-
-func TestLocalStorage_PutTTL(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 10)
-
-	testcases := []struct {
-		name     string
-		key      string
-		value    interface{}
-		ttl      time.Duration
-		timeout  time.Duration
-		expected string
-	}{
-		{
-			name:     "valid",
-			key:      "key1",
-			value:    "value",
-			expected: "value",
-		},
-		{
-			name:     "no valid",
-			key:      "key2",
-			value:    "value",
-			ttl:      time.Duration(10) * time.Millisecond,
-			timeout:  time.Duration(11) * time.Millisecond,
-			expected: "",
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := db.Put(tc.key, tc.value, tc.ttl)
-			if err != nil {
-				t.Errorf("No error expected but got %s", err)
-			}
-
-			time.Sleep(tc.timeout)
-
-			value, _ := db.Get(tc.key)
-			if value == nil {
-				value = ""
-			} else {
-				value = value.(string)
-			}
-
-			if value != tc.expected {
-				t.Errorf("Values not equals:\n - expected: %s\n- actual: %s", tc.expected, value)
 			}
 		})
 	}
@@ -142,7 +88,7 @@ func TestLocalStorage_Del(t *testing.T) {
 	defer cancel()
 
 	db := localstorage.New(ctx, 10)
-	_ = db.Put("key", "value", 0)
+	_ = db.Put("key", "value")
 
 	testcases := []struct {
 		name     string
@@ -181,11 +127,14 @@ func TestLocalStorage_Keys(t *testing.T) {
 		t.Errorf("Values not equals:\n- expected: 0\n- actual: %d", len(keys))
 	}
 
-	_ = db.Put("key", "value", 0)
+	_ = db.Put("key", "value")
 	expected := "key"
-	keys = db.Keys()
-	if expected != keys[0] {
-		t.Errorf("Values not equals:\n- expected: %s\n- actual: %s", expected, keys[0])
+
+	for i := 0; i < 2; i++ {
+		keys = db.Keys()
+		if expected != keys[0] {
+			t.Errorf("Values not equals:\n- expected: %s\n- actual: %s", expected, keys[0])
+		}
 	}
 }
 
@@ -200,51 +149,52 @@ func TestLocalStorage_Values(t *testing.T) {
 		t.Errorf("Values not equals:\n- expected: 0\n- actual: %d", len(values))
 	}
 
-	_ = db.Put("key", "value", 0)
+	_ = db.Put("key", "value")
 	expected := "value"
-	values = db.Values()
-	if expected != values[0].(string) {
-		t.Errorf("Values not equals:\n- expected: %s\n- actual: %s", expected, values[0].(string))
+
+	for i := 0; i < 2; i++ {
+		values = db.Values()
+		if expected != values[0].(string) {
+			t.Errorf("Values not equals:\n- expected: %s\n- actual: %s", expected, values[0].(string))
+		}
 	}
 }
 
-func BenchmarkLocalStorage_AllInConcurency(b *testing.B) {
+func BenchmarkLocalStorage_AsyncAll(b *testing.B) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	db := localstorage.New(ctx, 1024*100)
-	ttl := time.Millisecond
-	ttl2 := time.Duration(100) * time.Microsecond
-
-	keys := GenerateKeys(1024 * 100)
+	db := localstorage.New(ctx, 1024)
+	keys := GenerateKeys(1024)
+	count := len(keys)
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			_, _ = db.Get(keys[rand.Intn(len(keys))])
+			_, _ = db.Get(keys[rand.Intn(count)])
 		}
 	})
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			_ = db.Put(keys[rand.Intn(len(keys))], struct{}{}, 0)
+			_ = db.Put(keys[rand.Intn(count)], struct{}{})
 		}
 	})
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			_ = db.Put(keys[rand.Intn(len(keys))], struct{}{}, ttl)
+			_ = db.Put(keys[rand.Intn(count)], struct{}{})
 		}
 	})
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			_ = db.Put(keys[rand.Intn(len(keys))], struct{}{}, ttl2)
+			_ = db.Put(keys[rand.Intn(count)], struct{}{})
 		}
 	})
 
 	b.RunParallel(func(p *testing.PB) {
 		for p.Next() {
-			_ = db.Del(keys[rand.Intn(9)])
+			_ = db.Del(keys[rand.Intn(count)])
 		}
 	})
 
@@ -269,7 +219,7 @@ func BenchmarkLocalStorage_Get(b *testing.B) {
 	keys := GenerateKeys(128)
 
 	for _, v := range keys {
-		_ = db.Put(v, struct{}{}, 0)
+		_ = db.Put(v, struct{}{})
 	}
 
 	for i := 0; i < b.N; i++ {
@@ -285,20 +235,7 @@ func BenchmarkLocalStorage_Put(b *testing.B) {
 	keys := GenerateKeys(128)
 
 	for i := 0; i < b.N; i++ {
-		_ = db.Put(keys[rand.Intn(len(keys))], struct{}{}, 0)
-	}
-}
-
-func BenchmarkLocalStorage_PutTTL(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	db := localstorage.New(ctx, 128)
-	ttl := time.Duration(10) * time.Microsecond
-	keys := GenerateKeys(128)
-
-	for i := 0; i < b.N; i++ {
-		_ = db.Put(keys[rand.Intn(len(keys))], struct{}{}, ttl)
+		_ = db.Put(keys[rand.Intn(len(keys))], struct{}{})
 	}
 }
 
@@ -310,7 +247,7 @@ func BenchmarkLocalStorage_Del(b *testing.B) {
 	keys := GenerateKeys(128)
 
 	for _, v := range keys {
-		_ = db.Put(v, struct{}{}, 0)
+		_ = db.Put(v, struct{}{})
 	}
 
 	for i := 0; i < b.N; i++ {
@@ -325,9 +262,11 @@ func BenchmarkLocalStorage_Keys(b *testing.B) {
 	db := localstorage.New(ctx, 128)
 	keys := GenerateKeys(128)
 
-	for _, v := range keys {
-		_ = db.Put(v, struct{}{}, 0)
-	}
+	go func() {
+		for _, v := range keys {
+			_ = db.Put(v, struct{}{})
+		}
+	}()
 
 	for i := 0; i < b.N; i++ {
 		_ = db.Keys()
@@ -341,9 +280,11 @@ func BenchmarkLocalStorage_Values(b *testing.B) {
 	db := localstorage.New(ctx, 128)
 	keys := GenerateKeys(128)
 
-	for _, v := range keys {
-		_ = db.Put(v, struct{}{}, 0)
-	}
+	go func() {
+		for _, v := range keys {
+			_ = db.Put(v, struct{}{})
+		}
+	}()
 
 	for i := 0; i < b.N; i++ {
 		_ = db.Values()
