@@ -42,6 +42,8 @@ func (s *LocalStorage) Get(key string) (interface{}, bool) {
 }
 
 // the Put adds key and value in storage.
+//
+// If key is not unique, Put returns ErrKeyNotUnique.
 func (s *LocalStorage) Put(key string, value interface{}) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -50,6 +52,8 @@ func (s *LocalStorage) Put(key string, value interface{}) error {
 }
 
 // the Del deletes value by key.
+//
+// If key is not found, Del returns ErrKeyNotFound.
 func (s *LocalStorage) Del(key string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
