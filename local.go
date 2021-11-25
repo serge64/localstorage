@@ -3,7 +3,8 @@ package localstorage
 import (
 	"errors"
 	"sync"
-	"sync/atomic"
+
+	"github.com/serge64/localstorage/cache"
 )
 
 var (
@@ -14,7 +15,7 @@ var (
 type LocalStorage struct {
 	db        map[string]interface{}
 	mutex     sync.RWMutex
-	cache     atomic.Value
+	cache     cache.Cache
 	bufKeys   []string
 	bufValues []interface{}
 }
@@ -27,7 +28,7 @@ func New(bufferSize int) LocalStorage {
 	return LocalStorage{
 		db:        make(map[string]interface{}),
 		mutex:     sync.RWMutex{},
-		cache:     atomic.Value{},
+		cache:     cache.New(),
 		bufKeys:   make([]string, 0, bufferSize),
 		bufValues: make([]interface{}, 0, bufferSize),
 	}
@@ -68,14 +69,14 @@ func (s *LocalStorage) Del(key string) error {
 func (s *LocalStorage) Keys() []string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	if s.cached() {
+	if s.cache.Cached() {
 		return s.bufKeys
 	}
 	s.bufKeys = s.bufKeys[:0]
 	for k := range s.db {
 		s.bufKeys = append(s.bufKeys, k)
 	}
-	s.newCache()
+	s.cache.Save()
 	return s.bufKeys
 }
 
@@ -83,14 +84,14 @@ func (s *LocalStorage) Keys() []string {
 func (s *LocalStorage) Values() []interface{} {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	if s.cached() {
+	if s.cache.Cached() {
 		return s.bufValues
 	}
 	s.bufValues = s.bufValues[:0]
 	for _, v := range s.db {
 		s.bufValues = append(s.bufValues, v)
 	}
-	s.newCache()
+	s.cache.Save()
 	return s.bufValues
 }
 
@@ -104,27 +105,11 @@ func (s *LocalStorage) put(key string, value interface{}) error {
 		return ErrNotUniqueKey
 	}
 	s.db[key] = value
-	s.resetCache()
+	s.cache.Reset()
 	return nil
 }
 
 func (s *LocalStorage) del(key string) {
 	delete(s.db, key)
-	s.resetCache()
-}
-
-func (s *LocalStorage) newCache() {
-	s.cache.Store(true)
-}
-
-func (s *LocalStorage) resetCache() {
-	s.cache.Store(false)
-}
-
-func (s *LocalStorage) cached() bool {
-	cache := s.cache.Load()
-	if cache == nil {
-		return false
-	}
-	return cache.(bool)
+	s.cache.Reset()
 }
