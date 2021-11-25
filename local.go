@@ -37,9 +37,9 @@ func New(bufferSize int) LocalStorage {
 // the Get returns value by key.
 func (s *LocalStorage) Get(key string) (interface{}, bool) {
 	s.mutex.RLock()
-	wrap, ok := s.get(key)
+	value, ok := s.get(key)
 	s.mutex.RUnlock()
-	return wrap, ok
+	return value, ok
 }
 
 // the Put adds key and value in storage.
@@ -47,9 +47,9 @@ func (s *LocalStorage) Get(key string) (interface{}, bool) {
 // If key is not unique, Put returns ErrKeyNotUnique.
 func (s *LocalStorage) Put(key string, value interface{}) error {
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	return s.put(key, value)
-
+	err := s.put(key, value)
+	s.mutex.Unlock()
+	return err
 }
 
 // the Del deletes value by key.
@@ -57,12 +57,9 @@ func (s *LocalStorage) Put(key string, value interface{}) error {
 // If key is not found, Del returns ErrKeyNotFound.
 func (s *LocalStorage) Del(key string) error {
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if _, ok := s.get(key); !ok {
-		return ErrNotFoundKey
-	}
-	s.del(key)
-	return nil
+	err := s.del(key)
+	s.mutex.Unlock()
+	return err
 }
 
 // the Keys returns keys array.
@@ -109,7 +106,11 @@ func (s *LocalStorage) put(key string, value interface{}) error {
 	return nil
 }
 
-func (s *LocalStorage) del(key string) {
+func (s *LocalStorage) del(key string) error {
+	if _, ok := s.get(key); !ok {
+		return ErrNotFoundKey
+	}
 	delete(s.db, key)
 	s.cache.Reset()
+	return nil
 }
